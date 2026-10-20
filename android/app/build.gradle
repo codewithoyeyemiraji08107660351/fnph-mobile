@@ -16,10 +16,10 @@ def signingValue = { String key, String env -> keystoreProps.getProperty(key) ?:
 def canSignRelease = signingValue('storeFile', 'FNPH_UPLOAD_STORE_FILE') != null
 
 android {
-    namespace = "ng.fnphkaduna.patient"
+    namespace = "com.fnphkaduna.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "ng.fnphkaduna.patient"
+        applicationId "com.fnphkaduna.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode Integer.parseInt(versionProps.getProperty('VERSION_CODE'))

@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './AuthProvider'
-import { CENTRAL_ADMINISTRATOR, safeDashboardRoute } from './roles'
+import { PATIENT_HOME, isPatientScope } from './roles'
 import { FullPageLoader } from '@/components/ui/Spinner'
 
 /*
-  These guards decide what the interface shows. They are not the security
-  boundary: the API checks every permission and tenant on every request.
+  These guards decide what the app shows. They are not the security
+  boundary: the API checks every permission on every request.
 */
 
 export function RequireAuth({ children }: { children: ReactNode }) {
@@ -14,10 +14,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   const location = useLocation()
   if (status === 'loading') return <FullPageLoader label="Restoring your session" />
   if (status === 'anonymous' || !principal) {
-    // A patient address goes to patient sign-in. It used to go to staff
-    // sign-in, which asks for a username a patient does not have.
-    const signIn = location.pathname.startsWith('/portal') ? '/patients' : '/sign-in'
-    return <Navigate to={signIn} replace state={{ from: location.pathname }} />
+    return <Navigate to="/patients" replace state={{ from: location.pathname }} />
   }
   if (principal.mustChangePassword && location.pathname !== '/account/password') {
     return <Navigate to="/account/password" replace />
@@ -25,43 +22,48 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>
 }
 
-/**
-  Ordinary users reach only their own workspace. The Central Administrator
-  reaches another workspace only through an open supervised session, which
-  the server records against every request.
-*/
 export function RequireRole({ roles, children }: { roles: string[]; children: ReactNode }) {
-  const { principal, hasRole, supervision } = useAuth()
+  const { principal, hasRole } = useAuth()
   if (!principal) return null
   if (hasRole(...roles)) return <>{children}</>
-  if (hasRole(CENTRAL_ADMINISTRATOR)) {
-    if (supervision && roles.includes(supervision.targetRole)) return <>{children}</>
-    return <Navigate to="/admin/supervision" replace state={{ notice: 'Open a supervised session to view another workspace.' }} />
-  }
-  return <Navigate to={safeDashboardRoute(principal.dashboardRoute)} replace />
+  return <Navigate to="/" replace />
 }
 
 export function RequirePermission({ permission, children }: { permission: string; children: ReactNode }) {
-  const { can, principal, supervision } = useAuth()
+  const { can, principal } = useAuth()
   if (!principal) return null
   if (can(permission)) return <>{children}</>
-  // Inside a supervised workspace, say why instead of bouncing to the
-  // administrator's own dashboard, which reads as the screen being broken.
-  if (supervision && window.location.pathname.startsWith(supervision.dashboardRoute)) {
-    return (
-      <div className="card mx-auto max-w-xl p-6 text-center">
-        <p className="font-display text-lg font-extrabold">Not available in a supervised view</p>
-        <p className="mt-2 text-sm text-muted">This screen changes records, and supervision is read-only. Nothing here can be done on {supervision.targetFullName}’s behalf.</p>
-      </div>
-    )
-  }
-  return <Navigate to={safeDashboardRoute(principal.dashboardRoute)} replace />
+  return <Navigate to={PATIENT_HOME} replace />
 }
 
-/** Sends a signed-in person to their own dashboard. */
-export function DashboardRedirect() {
+/** Sign-in and enrolment screens: a patient who is already signed in goes straight to their care. */
+export function SignedOutOnly({ children }: { children: ReactNode }) {
   const { status, principal } = useAuth()
   if (status === 'loading') return <FullPageLoader label="Restoring your session" />
-  if (!principal) return <Navigate to="/sign-in" replace />
-  return <Navigate to={safeDashboardRoute(principal.dashboardRoute)} replace />
+  if (isPatientScope(principal?.scope)) return <Navigate to={PATIENT_HOME} replace />
+  return <>{children}</>
+}
+
+/**
+  The app is for patients only. Staff accounts sign in on the website, where
+  their workspaces are. A staff account that signs in here is told so and
+  offered sign-out, rather than shown an empty patient screen.
+*/
+export function PatientOnly({ children }: { children: ReactNode }) {
+  const { principal, signOut } = useAuth()
+  if (principal && !isPatientScope(principal.scope)) {
+    // Not the patient layout: it loads the signed-in patient's own records,
+    // which a staff account cannot read.
+    return (
+      <main className="flex min-h-dvh items-center justify-center bg-canvas p-6">
+        <div className="card max-w-md space-y-3 p-6">
+          <span className="eyebrow">Patient app</span>
+          <h1 className="text-xl font-extrabold">This app is for patients</h1>
+          <p className="text-sm text-muted">Hospital and centre staff sign in on the FNPH Kaduna telepsychiatry website.</p>
+          <button type="button" className="btn btn-primary" onClick={() => void signOut()}>Sign out</button>
+        </div>
+      </main>
+    )
+  }
+  return <>{children}</>
 }

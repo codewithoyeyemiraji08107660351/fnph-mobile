@@ -5,9 +5,7 @@ import { ToastProvider } from '@/components/ui/Toast'
 import { ApiError } from '@/lib/api/http'
 
 /*
-  Data, notices and the signed-in person, for any front end built from this
-  code. The website and the Android patient app wrap their routers in this,
-  so caching and retry rules stay identical between them.
+  Data, notices and the signed-in patient, around the whole app.
 */
 const queryClient = new QueryClient({
   defaultOptions: {

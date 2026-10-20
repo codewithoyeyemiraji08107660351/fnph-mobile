@@ -1,33 +1,13 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
 node_modules
 dist
-dist-patient
-dist-ssr
+*.log
 *.local
-
-# Editor directories and files
+.DS_Store
+.idea
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
 
-# Environment
+# Environment: only the public API address is committed.
 .env
 .env.*
-!.env.example
-
-# The Android app build address is not secret and the build needs it.
-!.env.patient
+!.env.production

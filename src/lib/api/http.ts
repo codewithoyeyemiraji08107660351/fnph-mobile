@@ -16,24 +16,20 @@ const API_ROOT = `${(import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
   httpOnly cookie is on the Phase 4 hardening list.
 */
 const REFRESH_KEY = 'fnph.session.rt'
-const SUPERVISION_KEY = 'fnph.session.viewAs'
-const SUPERVISION_ROUTE_KEY = 'fnph.session.viewAsRoute'
 
 let accessToken: string | null = null
 
 /*
-  Where else the refresh token is kept. The website keeps it in this tab
-  only. The Android app also keeps it in the phone's encrypted storage, so a
+  Where else the refresh token is kept. It sits in session storage for
+  this run. The app also keeps it in the phone's encrypted storage, so a
   patient is not signed out when Android closes the app in the background
-  (for example while they pay in the browser tab). See src/patient-app/session.ts.
+  (for example while they pay in the browser tab). See src/native/session.ts.
 */
 type RefreshTokenSink = (refreshToken: string | null) => void
 let refreshTokenSink: RefreshTokenSink | null = null
 export function keepRefreshTokenWith(sink: RefreshTokenSink) {
   refreshTokenSink = sink
 }
-let supervisionSessionId: string | null = sessionStorage.getItem(SUPERVISION_KEY)
-let supervisionRoute: string | null = sessionStorage.getItem(SUPERVISION_ROUTE_KEY)
 
 export const tokenStore = {
   hasRefreshToken: () => Boolean(sessionStorage.getItem(REFRESH_KEY)),
@@ -53,34 +49,8 @@ export const tokenStore = {
   clear() {
     accessToken = null
     sessionStorage.removeItem(REFRESH_KEY)
-    setSupervisionSession(null)
     refreshTokenSink?.(null)
   },
-}
-
-/**
-  The supervised session and the workspace it opens. The server runs a request
-  carrying the session header as the viewed account, read-only, so the header
-  is sent only from inside that workspace. The administrator's own screens
-  (/admin, account, sign-out) keep running as the administrator.
-*/
-export function setSupervisionSession(id: string | null, route?: string | null) {
-  supervisionSessionId = id
-  supervisionRoute = id ? (route ?? null) : null
-  if (id) sessionStorage.setItem(SUPERVISION_KEY, id)
-  else sessionStorage.removeItem(SUPERVISION_KEY)
-  if (supervisionRoute) sessionStorage.setItem(SUPERVISION_ROUTE_KEY, supervisionRoute)
-  else sessionStorage.removeItem(SUPERVISION_ROUTE_KEY)
-}
-
-function inSupervisedWorkspace(): boolean {
-  if (!supervisionSessionId || !supervisionRoute) return false
-  const path = window.location.pathname
-  return path === supervisionRoute || path.startsWith(`${supervisionRoute}/`)
-}
-
-export function getSupervisionSessionId() {
-  return supervisionSessionId
 }
 
 /** Fired when the session cannot be renewed. The auth provider listens. */
@@ -146,7 +116,6 @@ export const http = axios.create({
 
 http.interceptors.request.use((config) => {
   if (accessToken) config.headers.set('Authorization', `Bearer ${accessToken}`)
-  if (supervisionSessionId && inSupervisedWorkspace()) config.headers.set('X-View-As-Session', supervisionSessionId)
   return config
 })
 

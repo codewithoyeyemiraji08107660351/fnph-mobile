@@ -1,11 +1,10 @@
 /*
-  What differs between the website and the Android patient app.
+  What differs between running on a phone and in a browser.
 
-  Shared screens call these instead of browser APIs that do not work inside
-  an app (navigating the whole page to a payment provider, saving a file
-  through a download link). The website uses the defaults below. The patient
-  app replaces them at start-up (src/patient-app/nativePlatform.ts), so the
-  website bundle never loads any native code.
+  Screens call these instead of browser APIs that do not work inside an app
+  (navigating the whole page to a payment provider, saving a file through a
+  download link). The defaults below serve npm run dev in a browser. On the
+  phone, src/main.tsx replaces them with src/native/platform.ts.
 */
 
 export type CallReadiness = { ok: true } | { ok: false; message: string }

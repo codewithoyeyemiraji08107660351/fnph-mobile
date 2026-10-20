@@ -1,9 +1,9 @@
 import type { CapacitorConfig } from '@capacitor/cli'
 
 /*
-  The Android patient app.
+  The FNPH patient app for Android.
 
-  It packages dist-patient/, the patient-only build (npm run build:patient).
+  It packages dist/, the output of npm run build.
   Pages are served from the phone at https://localhost, so the API must allow
   that origin (CORS_ALLOWED_ORIGINS on the backend) and the build must name
   the API's own address in VITE_API_BASE_URL.
@@ -11,9 +11,9 @@ import type { CapacitorConfig } from '@capacitor/cli'
   The app id is permanent once the app is on the Play Store.
 */
 const config: CapacitorConfig = {
-  appId: 'ng.fnphkaduna.patient',
+  appId: 'com.fnphkaduna.app',
   appName: 'FNPH Telepsychiatry',
-  webDir: 'dist-patient',
+  webDir: 'dist',
   android: {
     // Never load http content inside an https page.
     allowMixedContent: false,
@@ -37,7 +37,7 @@ const config: CapacitorConfig = {
       showSpinner: false,
     },
     // Built into Capacitor 8. The page is laid out between the status bar
-    // and the navigation bar (patient.html does not ask for viewport-fit=cover),
+    // and the navigation bar (index.html does not ask for viewport-fit=cover),
     // so no screen needs safe-area padding. Dark icons on the white strip.
     SystemBars: {
       insetsHandling: 'native',
