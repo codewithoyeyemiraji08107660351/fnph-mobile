@@ -1,0 +1,84 @@
+import { useEffect, useRef, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { consultationApi } from '@/lib/api/endpoints/clinical'
+import { ConsultFrame } from '@/features/consult/ConsultFrame'
+import { useJoinOnce } from '@/features/consult/useJoinOnce'
+import { usePublicSettings } from '@/lib/hooks/usePublicSettings'
+import { formatPhone, formatTime } from '@/lib/format'
+import { useDocumentTitle } from '@/lib/hooks/useDocumentTitle'
+import { Spinner } from '@/components/ui/Spinner'
+import { Alert } from '@/components/ui/Alert'
+import { platform } from '@/lib/platform'
+
+export function PatientRoom() {
+  const [ready, setReady] = useState(false)
+  const [privatePlace, setPrivatePlace] = useState(false)
+  const [mediaNote, setMediaNote] = useState<string | null>(null)
+  const [checking, setChecking] = useState(false)
+  // In the app, Android asks for camera and microphone here, before the room
+  // loads. A refusal does not stop the patient joining: the doctor can still
+  // hear or call them, so they are told what to change and let in.
+  const join = async () => {
+    setChecking(true)
+    const readiness = await platform.prepareCall()
+    setMediaNote(readiness.ok ? null : readiness.message)
+    setChecking(false)
+    setReady(true)
+  }
+  if (ready) return <ConnectedPatientRoom mediaNote={mediaNote} />
+  return <><div className="screen-heading"><span className="eyebrow">Secure waiting room</span><h1>Settle in before meeting your clinician</h1><p>Find a quiet, private place. Keep your medicines and recent results nearby.</p></div><div className="card journey-form"><h2>Prepare for your consultation</h2><p>Check your internet connection and charge your device. Camera and microphone permissions will be requested by the secure consultation room.</p><label className="check-line"><input type="checkbox" checked={privatePlace} onChange={e => setPrivatePlace(e.target.checked)} /><span>I am in a private place and understand that joining late will not extend the fixed 30-minute session.</span></label><button className="live-button" disabled={!privatePlace || checking} onClick={() => void join()}>{checking ? 'Checking camera and microphone…' : '● Join secure consultation'}</button><Link to="/portal/appointments">Back to appointments</Link></div></>
+}
+
+function ConnectedPatientRoom({ mediaNote }: { mediaNote: string | null }) {
+  useDocumentTitle('Your consultation')
+  const { appointmentId = '' } = useParams()
+  const { emergencyNumber } = usePublicSettings()
+  const { session, error, retry } = useJoinOnce(appointmentId, () => consultationApi.joinAsPatient(appointmentId))
+  const reported = useRef(false)
+  useEffect(() => {
+    if (!session || reported.current) return
+    reported.current = true
+    const c = (navigator as Navigator & { connection?: { rtt?: number; effectiveType?: string } }).connection
+    void consultationApi.reportQuality(session.consultationPublicId, 'PATIENT', { roundTripMs: c?.rtt, videoQuality: c?.effectiveType })
+  }, [session])
+
+  if (error) {
+    return (
+      <div className="mx-auto max-w-xl">
+        <Alert tone={error.status === 409 ? 'warning' : 'danger'} title="The room is not open">
+          {error.message}
+        </Alert>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <button type="button" className="btn btn-primary" onClick={retry}>Try again</button>
+          <Link to="/portal/appointments" className="btn btn-secondary no-underline">Back to appointments</Link>
+        </div>
+        <p className="mt-6 text-sm text-muted">
+          In an emergency, call <a href={`tel:${emergencyNumber}`} className="font-bold">{formatPhone(emergencyNumber)}</a>.
+        </p>
+      </div>
+    )
+  }
+  if (!session) return <Spinner label="Connecting you to the room" />
+
+  // No countdown for the patient. The clinician manages the time.
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <span className="kicker">Your consultation</span>
+          <h1 className="text-2xl font-extrabold">
+            {formatTime(session.scheduledStart)} to {formatTime(session.scheduledEnd)} WAT
+          </h1>
+        </div>
+        <p className="text-sm text-muted">The doctor will confirm who you are before starting.</p>
+      </div>
+      {mediaNote && <Alert tone="warning" title="Camera or microphone is off">{mediaNote}</Alert>}
+      <ConsultFrame roomUrl={session.roomUrl} token={session.token} title="Video consultation" />
+      <div className="grid gap-3 text-sm sm:grid-cols-3">
+        <p className="rounded-[14px] bg-white p-4"><strong className="block">Somewhere private</strong><span className="text-muted">A quiet room where nobody can overhear.</span></p>
+        <p className="rounded-[14px] bg-white p-4"><strong className="block">Connection drops?</strong><span className="text-muted">Reopen this page. The doctor may switch to audio or call you.</span></p>
+        <p className="rounded-[14px] bg-blush p-4 text-alarm-700"><strong className="block">Emergency</strong>Call <a className="font-bold text-alarm-700" href={`tel:${emergencyNumber}`}>{formatPhone(emergencyNumber)}</a></p>
+      </div>
+    </div>
+  )
+}
